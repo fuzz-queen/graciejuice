@@ -74,7 +74,7 @@ async function testDB() {
     // for now, logging is a fine way to see what's up
     console.log(users);
   } catch (error) {
-    console.error("Error testing database!");
+    console.error("Error testing database");
   }
 }
 
