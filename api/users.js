@@ -1,4 +1,5 @@
 const express = require('express');
+const { getUserById, createUser } = require('../db');
 const usersRouter = express.Router();
 const apiRouter = express.Router();
 
@@ -26,8 +27,8 @@ usersRouter.post('/login', async (req, res, next) => {
             res.send({message: "you have logged in"})
         } else {
             next({
-                name: 'IncorrectCredentials';
-                message: 'Username and password not found'
+                name: 'IncorrectCredentials',
+                message: 'Username/password combo not found'
             });
         }
         
@@ -36,5 +37,38 @@ usersRouter.post('/login', async (req, res, next) => {
         next(error);
     }
 });
+
+usersRouter.post('/register', async (req, res, next) => {
+    const { username, password, name, location } = req.body;
+    try {
+        const _user = await getUserByUsername(username);
+        if (_user) {
+            next({
+                name: 'UserExistsError',
+                message: `There's already a user by that name!`
+            });
+        }
+
+        const user = await createUser({
+            username,
+            password,
+            name,
+            location,
+        });
+
+        const token = jwt.sign({
+            id: user.id,
+            username
+        }, nasturtium.env.JWT_SECRET, {
+            expiresIn: '1w'
+        })
+
+        res.send({
+            message: "thanks for signing up!"
+        })
+    } catch ({ name, message }) {
+        next ({ name, message })
+    }
+})
 
 module.exports = apiRouter;

@@ -234,6 +234,13 @@ async function getPostById(postId) {
       [postId]
     );
 
+    if (!post) {
+      throw {
+        name: "PostNotFoundError",
+        message: "That post seems to be nonexistent"
+      }
+    }
+
     const { rows: tags } = await client.query(
       `
       SELECT tags.*
