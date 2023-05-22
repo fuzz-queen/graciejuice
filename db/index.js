@@ -1,3 +1,12 @@
+const PORT = 3000;
+const express = require('express');
+const server = express();
+server.listen(PORT, () => {
+  
+})
+
+const appRouter = require('express').Router();
+
 const { Client } = require("pg"); // imports the pg module
 
 const client = new Client("postgres://localhost:5432/juicebox-dev");
@@ -98,6 +107,19 @@ async function getUserById(userId) {
 
     user.posts = await getPostsByUser(userId);
 
+    return user;
+  } catch (error) {
+    throw error;
+  }
+}
+
+async function getUserByUsername(username) {
+  try {
+    const { rows: [user] } = await client.query(
+      `SELECT *
+      FROM users
+      WHERE username=$1`, username
+    );
     return user;
   } catch (error) {
     throw error;
