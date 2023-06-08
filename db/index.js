@@ -1,34 +1,16 @@
-const PORT = 3000;
-const express = require('express');
-const server = express();
-server.listen(PORT, () => {
-  
-})
 
-const appRouter = require('express').Router();
+const { Client } = require("pg");
 
-const { Client } = require("pg"); // imports the pg module
+const client = new Client({
+  connectionString: process.env.DATABASE_URL || "postgres://localhost:5432/juicebox-dev"
+});
 
-const client = new Client("postgres://localhost:5432/juicebox-dev");
-
-module.exports = {
-  client,
-  createUser,
-  updateUser,
-  getAllUsers,
-  getUserById,
-  createPost,
-  updatePost,
-  getAllPosts,
-  getPostsByUser,
-  getPostsByTagName,
-  createTags,
-  getAllTags,
-  createPostTag,
-  addTagsToPost,
-};
-
-async function createUser({ username, password, name, location }) {
+async function createUser({ 
+  username, 
+  password, 
+  name, 
+  location 
+}) {
   try {
     const {
       rows: [user],
@@ -49,12 +31,10 @@ async function createUser({ username, password, name, location }) {
 }
 
 async function updateUser(id, fields = {}) {
-  // build the set string
-  const setString = Object.keys(fields)
-    .map((key, index) => `"${key}"=$${index + 1}`)
-    .join(", ");
+  const setString = Object.keys(fields).map(
+    (key, index) => `"${key}"=$${index + 1}`
+    ).join(", ");
 
-  // return early if this is called without fields
   if (setString.length === 0) {
     return;
   }
@@ -84,7 +64,6 @@ async function getAllUsers() {
       SELECT id, username, name, location, active 
       FROM users;
     `);
-
     return rows;
   } catch (error) {
     throw error;
@@ -118,8 +97,15 @@ async function getUserByUsername(username) {
     const { rows: [user] } = await client.query(
       `SELECT *
       FROM users
-      WHERE username=$1`, username
+      WHERE username=$1`, [username]
     );
+    if (!user) {
+      throw {
+        name: "UserNotFoundError",
+        message: "Ain't no user by that username!"
+      }
+    }
+
     return user;
   } catch (error) {
     throw error;
@@ -164,14 +150,12 @@ async function updatePost(postId, fields = {}) {
   try {
     // update any fields that need to be updated
     if (setString.length > 0) {
-      await client.query(
-        `
+      await client.query(`
         UPDATE posts
         SET ${setString}
         WHERE id=${postId}
         RETURNING *;
-      `,
-        Object.values(fields)
+      `, Object.values(fields)
       );
     }
 
@@ -197,7 +181,6 @@ async function updatePost(postId, fields = {}) {
 
     // and create post_tags as necessary
     await addTagsToPost(postId, tagList);
-
     return await getPostById(postId);
   } catch (error) {
     throw error;
@@ -395,3 +378,21 @@ async function getAllTags() {
     throw error;
   }
 }
+
+
+module.exports = {
+  client,
+  createUser,
+  updateUser,
+  getAllUsers,
+  getUserById,
+  createPost,
+  updatePost,
+  getAllPosts,
+  getPostsByUser,
+  getPostsByTagName,
+  createTags,
+  getAllTags,
+  createPostTag,
+  addTagsToPost,
+};

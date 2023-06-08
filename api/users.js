@@ -1,30 +1,44 @@
 const express = require('express');
-const { getUserById, createUser } = require('../db');
+const { 
+    getUserByUsername,
+    getAllUsers, 
+    createUser 
+} = require('../db');
 const usersRouter = express.Router();
-const apiRouter = express.Router();
+const jwt = requre('jsonwebtoken');
 
-usersRouters.use((req, res, next) => { 
-
+usersRouters.get('/', async (req, res, next) => { 
+    try {
+        const users = await getAllUsers();
+        res.send({
+            users
+        });
+    } catch (error) {
+        next(error)
+    }
 })
-
-usersRouter.get('/', (req, res) => {
-    res.send({
-        users: []
-    });
-});
 
 usersRouter.post('/login', async (req, res, next) => {
     const { username, password } = req.body;
     if (!username || !password ) {
         next({
             name: "MissingCredentialsError",
-            message: "Please supply both a username and a password"
+            message: "You gotta give a username AND a password"
         });
     }
     try {
         const user = await getUserByUsername(username);
         if (user && user.password === password) {
-            res.send({message: "you have logged in"})
+            const token = jwt.sign({
+                id: user.id,
+                username
+            }, process.env.JWT_SECRET, {
+                expiresIn: '1w'
+            });
+
+            res.send({message: "ya done logged in!",
+            token
+        });
         } else {
             next({
                 name: 'IncorrectCredentials',
@@ -64,11 +78,11 @@ usersRouter.post('/register', async (req, res, next) => {
         })
 
         res.send({
-            message: "thanks for signing up!"
+            message: "we appreciate you signing up!"
         })
     } catch ({ name, message }) {
         next ({ name, message })
     }
-})
+});
 
 module.exports = apiRouter;

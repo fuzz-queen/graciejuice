@@ -1,8 +1,32 @@
 const express = require('express');
-const { requireUser } = require('./utils');
-const { createPost, getPostsByTagName, updatePost } = require('../db');
 const postsRouter = express.Router();
-const apiRouter = express.Router();
+const { requireUser } = require('./utils');
+const { createPost, 
+    getPostById, 
+    updatePost, 
+    getAllPosts 
+} = require('../db');
+
+
+
+postsRouter.get("/", async (req, res, next)=>{
+    try {
+        const allPosts = await getAllPosts();
+        const posts = allPosts.filter(post => {
+            if (post.active) {
+                return true;
+            }
+            if (req.user && post.author.id === req.user.id) {
+                return true;
+            }
+            return false;
+        });
+
+        res.send({posts})
+    } catch (error) {
+        next(error)
+    }
+})
 
 postsRouter.post('/', requireUser, async (req, res, next) => {
     const { title, content, tags = "" } = req.body;
@@ -13,11 +37,18 @@ postsRouter.post('/', requireUser, async (req, res, next) => {
         postData.tags = tagArr;
     }
     try {
+        postData.authorId = req.user.id;
+        postData.title = title;
+        postData.content = content;
+
         const post = await createPost(postData);
         if (post) {
             res.send({post});
         } else {
-            res.send(console.error(err))
+            next({
+                name: 'PostCreationError',
+                message: 'There was an error creating your post. Please try again.'
+            })
         }
     } catch ({ name, message }) {
         next({ name, message })
@@ -26,7 +57,7 @@ postsRouter.post('/', requireUser, async (req, res, next) => {
 
 postsRouter.patch('/:postId', requireUser, async (req, res, next) => {
     const { postId } = req.params;
-    const { title, content, tags} = req.body;
+    const { title, content, tags } = req.body;
     const updateFields = {};
 
     if (tags && tags.length > 0) {
@@ -36,41 +67,42 @@ postsRouter.patch('/:postId', requireUser, async (req, res, next) => {
         updateFields.title = title;
     }
     if (content) {
-        updateFields.content = content
+        updateFields.content = content;
     }
     try {
-        const originalPost = await getPostsById(postId);
+        const originalPost = await getPostById(postId);
         if (originalPost.author.id === req.user.id) {
-            const updatedPost = await updatePost(postId, updateFields)
+            const updatedPost = await updatePost(postId, updateFields);
             res.send({ post: updatedPost })
         } else {
             next({
                 name: 'UnauthorizedUserError',
-                message: 'Not your post to update'
+                message: 'You Cannot update a post that is not yours'
             })
         }
-    } catch ({ name, message }) {
-        next({ name, message })
+    } catch (error) {
+        next(error);
     }
 })
 
 postsRouter.delete('/:postId', requireUser, async (req, res, next) => {
     try {
-        const post = await getPostById(req.params/postId);
-
+        const post = await getPostById(req.params.postId);
         if (post && post.author.id === req.user.id) {
-            const updatedPost = await updatePost(post.id, {active: false});
+            const updatedPost = await updatePost(post.id, { active: false });
             res.send({ post: updatedPost });
         } else {
             next(post ? {
-                name: "UnauthorizedUserError",
-                message: "Not your post to delete"
+                name: 'UnauthorizedUserError',
+                message: "you cannot delete a post which is not yours"
             } : {
                 name: "PostNotFoundError",
-                message: "Post is nonexistent"
+                message: "That post does not exist"
             })
         }
-    } catch ({ name, message }) {
-        next ({ name, message })
+    } catch (error) {
+        next(error)
     }
 })
+
+module.exports = postsRouter
